@@ -1,3 +1,4 @@
+import * as THREE from 'three';
 import { OilBarrelInstance } from './barrels';
 import { MonsterInstance } from './monsters';
 import { ShipPartState, STARTING_DEPTH } from './types';
@@ -41,6 +42,7 @@ export class HUDManager {
   private wpnBulletsBar = document.getElementById('wpn-bullets-bar') as HTMLDivElement;
   private wpnBulletsTxt = document.getElementById('wpn-bullets-txt') as HTMLDivElement;
 
+  private barrelMarkersEl = document.getElementById('barrel-markers') as HTMLDivElement;
   private pilotReticle = document.getElementById('pilot-reticle') as HTMLDivElement;
   private walkReticle = document.getElementById('walk-reticle') as HTMLDivElement;
   private hitmarkerEl = document.getElementById('reticle-hitmarker') as HTMLDivElement;
@@ -63,6 +65,7 @@ export class HUDManager {
       this.fxFlood.style.height = '0%';
       this.fxDamage.style.opacity = '0';
       this.fxDrown.style.opacity = '0';
+      this.barrelMarkersEl.innerHTML = '';
     }
   }
 
@@ -103,6 +106,7 @@ export class HUDManager {
     parts: ShipPartState[];
     monsters: MonsterInstance[];
     barrels: OilBarrelInstance[];
+    camera: THREE.PerspectiveCamera;
     sonarDamaged: boolean;
     promptText: string | null;
     pointerLocked: boolean;
@@ -127,6 +131,7 @@ export class HUDManager {
       parts,
       monsters,
       barrels,
+      camera,
       sonarDamaged,
       promptText,
       pointerLocked,
@@ -268,8 +273,57 @@ export class HUDManager {
       })
       .join('');
 
-    // Render Hydrophone / Sonar Radar
+    // Render Hydrophone / Sonar Radar & 3D Viewport Barrel Highlight Brackets
     this.renderSonarRadar(time, monsters, barrels, sonarDamaged);
+    this.renderBarrelHighlights(piloting && !minigameOpen, barrels, monsters, camera);
+  }
+
+  private renderBarrelHighlights(
+    visible: boolean,
+    barrels: OilBarrelInstance[],
+    monsters: MonsterInstance[],
+    camera: THREE.PerspectiveCamera
+  ): void {
+    if (!visible) {
+      this.barrelMarkersEl.innerHTML = '';
+      return;
+    }
+
+    const targets: THREE.Vector3[] = [];
+    for (const b of barrels) {
+      targets.push(b.position);
+    }
+    // Disguised Mimic Sirens get the exact same barrel highlight bracket so only the barrel's GLOW gives it away!
+    for (const m of monsters) {
+      if (m.type === 'mimic_siren' && !m.agitated) {
+        targets.push(m.position);
+      }
+    }
+
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    let html = '';
+
+    for (const pos of targets) {
+      const dist = camera.position.distanceTo(pos);
+      if (dist > 115 || dist < 4) continue;
+
+      const proj = pos.clone().project(camera);
+      // Must be in front of camera (proj.z < 1) and within screen bounds
+      if (proj.z >= 1 || Math.abs(proj.x) > 0.96 || Math.abs(proj.y) > 0.92) continue;
+
+      const sx = (proj.x * 0.5 + 0.5) * w;
+      const sy = (-proj.y * 0.5 + 0.5) * h;
+      const boxSize = Math.max(30, Math.min(86, 1950 / dist));
+
+      html += `
+        <div class="barrel-bracket" style="left:${sx.toFixed(1)}px;top:${sy.toFixed(1)}px;width:${boxSize.toFixed(0)}px;height:${boxSize.toFixed(0)}px;">
+          <div class="barrel-bracket-tag">🛢 BARREL ${Math.round(dist)}m</div>
+        </div>
+      `;
+    }
+
+    this.barrelMarkersEl.innerHTML = html;
   }
 
   private drawRadarBarrelIcon(ctx: CanvasRenderingContext2D, x: number, y: number): void {

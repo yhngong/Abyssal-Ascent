@@ -13,62 +13,90 @@ export interface OilBarrelInstance {
 let nextBarrelId = 1;
 
 /**
- * Builds a 3D 55-gallon Oil Barrel mesh.
- * - Real oil barrels have `glowing = false` (matte painted metal, zero self-emission).
- * - Mimic Sirens call `buildOilBarrelMesh(true)` so their decoy barrel glows!
+ * Builds a 3D 55-gallon Oil Barrel mesh with a crisp 3D silhouette highlight outline.
+ * - Real oil barrels (`glowing = false`) have a clean cyan silhouette highlight outline,
+ *   while the drum surface inside is matte painted metal (NO self-glow!).
+ * - Mimic Sirens (`glowing = true`) have the same silhouette highlight outline,
+ *   EXCEPT the barrel body itself radiates an eerie bioluminescent glow!
  */
 export function buildOilBarrelMesh(glowing: boolean): THREE.Group {
   const barrel = new THREE.Group();
 
   const bodyMat = glowing
     ? new THREE.MeshStandardMaterial({
-        color: 0xd97706,
+        color: 0xf59e0b,
         emissive: 0xff9e1b,
-        emissiveIntensity: 0.92,
-        roughness: 0.35,
-        metalness: 0.2,
+        emissiveIntensity: 1.35,
+        roughness: 0.25,
+        metalness: 0.15,
       })
     : new THREE.MeshStandardMaterial({
-        color: 0x855316, // Matte weathered industrial amber-brown steel (NO glow!)
+        color: 0xb4781e, // Matte painted industrial drum (NO self-glow!)
         emissive: 0x000000,
         emissiveIntensity: 0,
-        roughness: 0.78,
-        metalness: 0.35,
+        roughness: 0.72,
+        metalness: 0.32,
       });
 
   const stripeMat = glowing
     ? new THREE.MeshStandardMaterial({
-        color: 0x3b2818,
+        color: 0x4c1d24,
         emissive: 0xf43f5e,
-        emissiveIntensity: 0.55,
-        roughness: 0.4,
+        emissiveIntensity: 0.95,
+        roughness: 0.3,
       })
     : new THREE.MeshStandardMaterial({
-        color: 0x1e293b, // Dark painted center band (NO glow!)
+        color: 0x1e293b, // Dark matte center band (NO self-glow!)
         emissive: 0x000000,
         emissiveIntensity: 0,
         roughness: 0.72,
-        metalness: 0.4,
+        metalness: 0.38,
       });
 
   const hoopMat = glowing
     ? new THREE.MeshStandardMaterial({
-        color: 0xfde047,
-        emissive: 0xfbbf24,
-        emissiveIntensity: 0.85,
-        roughness: 0.3,
+        color: 0xfef08a,
+        emissive: 0xfacc15,
+        emissiveIntensity: 1.25,
+        roughness: 0.25,
       })
     : new THREE.MeshStandardMaterial({
-        color: 0x475569,
+        color: 0x64748b,
         emissive: 0x000000,
         emissiveIntensity: 0,
-        roughness: 0.6,
-        metalness: 0.55,
+        roughness: 0.55,
+        metalness: 0.5,
       });
 
   // Main cylindrical drum
-  const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.72, 0.72, 1.95, 18), bodyMat);
+  const drumGeo = new THREE.CylinderGeometry(0.72, 0.72, 1.95, 18);
+  const drum = new THREE.Mesh(drumGeo, bodyMat);
   barrel.add(drum);
+
+  // 3D Inverted-Hull Silhouette Highlight Outline (highlights barrel silhouette without making interior glow!)
+  const outlineShell = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.81, 0.81, 2.08, 18),
+    new THREE.MeshBasicMaterial({
+      color: 0x38bdf8,
+      side: THREE.BackSide,
+      transparent: true,
+      opacity: 0.92,
+      fog: false,
+    })
+  );
+  barrel.add(outlineShell);
+
+  // Crisp top & bottom rim highlight rings
+  const rimEdges = new THREE.LineSegments(
+    new THREE.EdgesGeometry(drumGeo, 25),
+    new THREE.LineBasicMaterial({
+      color: 0x7dd3fc,
+      transparent: true,
+      opacity: 0.75,
+      fog: false,
+    })
+  );
+  barrel.add(rimEdges);
 
   // Dark painted center hazard band
   const centerBand = new THREE.Mesh(new THREE.CylinderGeometry(0.73, 0.73, 0.62, 18), stripeMat);
@@ -89,15 +117,17 @@ export function buildOilBarrelMesh(glowing: boolean): THREE.Group {
   cap2.position.set(-0.28, 0.99, -0.18);
   barrel.add(cap1, cap2);
 
-  // Subtle eerie aura shell ONLY on the Mimic Siren's glowing barrel decoy
+  // Eerie radiant bioluminescent aura shell ONLY on the Mimic Siren's glowing barrel decoy!
   if (glowing) {
     const aura = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.86, 0.86, 2.12, 16),
+      new THREE.SphereGeometry(1.42, 16, 14),
       new THREE.MeshBasicMaterial({
         color: 0xfbbf24,
         transparent: true,
-        opacity: 0.18,
+        opacity: 0.26,
+        blending: THREE.AdditiveBlending,
         depthWrite: false,
+        fog: false,
       })
     );
     barrel.add(aura);
@@ -179,7 +209,6 @@ export class OilBarrelManager {
 
   private spawnBarrel(): void {
     const meshGroup = buildOilBarrelMesh(false);
-    // Tilt initial barrel orientation naturally
     meshGroup.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
 
     const angleX = (Math.random() - 0.5) * 1.15;
