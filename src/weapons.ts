@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { OilBarrelInstance, OilBarrelManager } from './barrels';
 import { MonsterInstance, MonsterManager } from './monsters';
 import { WeaponType } from './types';
 
@@ -153,8 +154,15 @@ export class WeaponSystem {
   public update(
     dt: number,
     harpoonOrigin: THREE.Vector3,
-    monsterMgr: MonsterManager
-  ): { hits: number; kills: number; ricochets: number } {
+    monsterMgr: MonsterManager,
+    barrelMgr: OilBarrelManager
+  ): {
+    hits: number;
+    kills: number;
+    ricochets: number;
+    barrelsReeled: number;
+    barrelsDestroyed: number;
+  } {
     this.harpoonCooldown = Math.max(0, this.harpoonCooldown - dt);
     this.bulletFireCooldown = Math.max(0, this.bulletFireCooldown - dt);
 
@@ -169,6 +177,8 @@ export class WeaponSystem {
     let hits = 0;
     let kills = 0;
     let ricochets = 0;
+    let barrelsReeled = 0;
+    let barrelsDestroyed = 0;
 
     for (let i = this.projectiles.length - 1; i >= 0; i--) {
       const p = this.projectiles[i];
@@ -183,6 +193,18 @@ export class WeaponSystem {
         if (dist <= m.hitRadius + (p.type === 'harpoon' ? 0.9 : 0.6)) {
           hitMonster = m;
           break;
+        }
+      }
+
+      // Check collision against real Oil Barrels if no monster hit
+      let hitBarrel: OilBarrelInstance | null = null;
+      if (!hitMonster) {
+        for (const b of barrelMgr.barrels) {
+          const dist = this.distPointToSegment(b.position, p.position, nextPos);
+          if (dist <= b.hitRadius + (p.type === 'harpoon' ? 0.75 : 0.35)) {
+            hitBarrel = b;
+            break;
+          }
         }
       }
 
@@ -208,6 +230,28 @@ export class WeaponSystem {
           res.killed ? 28 : 14
         );
 
+        this.group.remove(p.mesh);
+        if (p.tetherLine) this.group.remove(p.tetherLine);
+        this.projectiles.splice(i, 1);
+        continue;
+      }
+
+      if (hitBarrel) {
+        if (p.type === 'harpoon') {
+          // Tethered harpoon reels the real oil barrel straight into the sub!
+          barrelMgr.removeBarrel(hitBarrel);
+          barrelsReeled++;
+          this.spawnHitBurst(p.position, 0xfacc15, 16);
+        } else {
+          // Bullets puncture real oil barrels if shot repeatedly!
+          hitBarrel.bulletHits++;
+          this.spawnHitBurst(p.position, 0x334155, 8);
+          if (hitBarrel.bulletHits >= 3) {
+            barrelMgr.removeBarrel(hitBarrel);
+            barrelsDestroyed++;
+            this.spawnHitBurst(p.position, 0x1e293b, 26);
+          }
+        }
         this.group.remove(p.mesh);
         if (p.tetherLine) this.group.remove(p.tetherLine);
         this.projectiles.splice(i, 1);
@@ -241,7 +285,7 @@ export class WeaponSystem {
       }
     }
 
-    return { hits, kills, ricochets };
+    return { hits, kills, ricochets, barrelsReeled, barrelsDestroyed };
   }
 
   private spawnHitBurst(origin: THREE.Vector3, colorHex: number, count: number): void {

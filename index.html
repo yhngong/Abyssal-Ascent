@@ -53,7 +53,8 @@
               <li><strong class="c-orange">Crusher Leviathan:</strong> Bulletproof shell! Use <em>Heavy Harpoons [1]</em> to pierce its chitin armor!</li>
               <li><strong class="c-green">Razor Viper Swarm:</strong> Erratic fast pack! Mow them down with <em>Rapid Bullets [2]</em>!</li>
               <li><strong class="c-cyan">Volt Siphonophore:</strong> Bio-EMP jellyfish! Scrambles lights &amp; power if it shocks the hull!</li>
-              <li><strong class="c-pink">Mimic Siren:</strong> Pretends to be a calm glowing orb until close — watch its teeth!</li>
+              <li><strong class="c-gold">Floating Oil Barrels:</strong> Appear as amber squares on radar! Let real (non-glowing) barrels reach the ship or harpoon them for <strong>+35% Ship Power</strong>.</li>
+              <li><strong class="c-pink">Mimic Barrel-Siren:</strong> Pretends to be an Oil Barrel on radar — <em>except its barrel GLOWS!</em> Shoot glowing barrels!</li>
             </ul>
           </div>
         </div>
@@ -83,6 +84,13 @@
         </div>
 
         <div class="vitals-panel">
+          <div class="vital-row">
+            <span>SHIP POWER (OIL)</span>
+            <span id="hud-power-pct">100%</span>
+          </div>
+          <div class="vital-track" style="margin-bottom: 6px;">
+            <div id="hud-power-fill" class="vital-fill power"></div>
+          </div>
           <div class="vital-row">
             <span>CABIN OXYGEN / FLOODING</span>
             <span id="hud-flood-pct">0% FLOODED</span>

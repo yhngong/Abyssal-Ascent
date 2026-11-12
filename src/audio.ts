@@ -231,6 +231,26 @@ export class SoundEngine {
     osc.stop(now + 0.1);
   }
 
+  public playPowerRefuel(): void {
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    const freqs = [330, 440, 660];
+    freqs.forEach((f, idx) => {
+      if (!this.ctx) return;
+      const t = now + idx * 0.07;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(f, t);
+      gain.gain.setValueAtTime(0.16, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(t);
+      osc.stop(t + 0.22);
+    });
+  }
+
   public playRuptureDrown(): void {
     if (!this.ctx) return;
     const now = this.ctx.currentTime;

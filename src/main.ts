@@ -1,6 +1,7 @@
 import './style.css';
 import * as THREE from 'three';
 import { SoundEngine } from './audio';
+import { OilBarrelManager } from './barrels';
 import { HUDManager } from './hud';
 import { MinigameController } from './minigames';
 import { MonsterManager } from './monsters';
@@ -32,6 +33,7 @@ class AbyssalAscentGame {
   private ocean: OceanEnvironment;
   private sub: Submarine;
   private monsters: MonsterManager;
+  private barrels: OilBarrelManager;
   private weapons: WeaponSystem;
   private minigames: MinigameController;
   private hud = new HUDManager();
@@ -41,6 +43,7 @@ class AbyssalAscentGame {
 
   // Gameplay State
   private depth = STARTING_DEPTH;
+  private shipPower = 100;
   private floodPercent = 0;
   private piloting = true;
   private motorOn = true;
@@ -87,6 +90,7 @@ class AbyssalAscentGame {
     this.ocean = new OceanEnvironment(this.scene);
     this.sub = new Submarine(this.scene);
     this.monsters = new MonsterManager(this.scene);
+    this.barrels = new OilBarrelManager(this.scene);
     this.weapons = new WeaponSystem(this.scene);
     this.minigames = new MinigameController(this.sound);
 
@@ -235,6 +239,11 @@ class AbyssalAscentGame {
           }
           break;
         case 'KeyM':
+          if (!this.motorOn && this.shipPower <= 0) {
+            this.sound.playMiniClick(false);
+            this.hud.showAlert('NO SHIP POWER! COLLECT A NON-GLOWING OIL BARREL FIRST!', 2.2);
+            break;
+          }
           this.motorOn = !this.motorOn;
           this.sound.playMiniClick(this.motorOn);
           this.hud.showAlert(
@@ -246,6 +255,11 @@ class AbyssalAscentGame {
           break;
         case 'KeyF':
         case 'KeyL':
+          if (!this.lightsOn && this.shipPower <= 0) {
+            this.sound.playMiniClick(false);
+            this.hud.showAlert('NO SHIP POWER! COLLECT A NON-GLOWING OIL BARREL FIRST!', 2.2);
+            break;
+          }
           this.lightsOn = !this.lightsOn;
           this.sound.playMiniClick(this.lightsOn);
           break;
@@ -279,6 +293,7 @@ class AbyssalAscentGame {
 
     this.state = 'playing';
     this.depth = STARTING_DEPTH;
+    this.shipPower = 100;
     this.floodPercent = 0;
     this.piloting = true;
     this.motorOn = true;
@@ -301,6 +316,7 @@ class AbyssalAscentGame {
     this.ruptureCause = '';
 
     this.monsters.clearAll();
+    this.barrels.clearAll();
     this.weapons.reset();
     this.sub.resetParts(this.selectedDiff.breachTimeSeconds);
 
@@ -336,6 +352,12 @@ class AbyssalAscentGame {
 
   private trySonarPing(): void {
     if (this.sonarCooldown > 0) return;
+    if (this.shipPower <= 0) {
+      this.sound.playMiniClick(false);
+      this.hud.showAlert('NO POWER FOR SONAR — COLLECT AN OIL BARREL!', 2.0);
+      return;
+    }
+    this.shipPower = Math.max(0, this.shipPower - 2.0);
     this.sonarCooldown = 6.0;
     this.weaponNoisePulse = Math.max(this.weaponNoisePulse, 0.9);
     this.ocean.triggerSonarWave();
@@ -435,6 +457,7 @@ class AbyssalAscentGame {
         depth: this.depth,
         zoneName: this.ocean.getZoneName(this.depth),
         ascentRate: 0,
+        shipPower: this.shipPower,
         floodPercent: this.floodPercent,
         piloting: this.piloting,
         motorOn: false,
@@ -445,6 +468,7 @@ class AbyssalAscentGame {
         weapons: this.weapons,
         parts: this.sub.parts,
         monsters: this.monsters.monsters,
+        barrels: this.barrels.barrels,
         sonarDamaged: true,
         promptText: 'CRITICAL HULL RUPTURE — CABIN FLOODING!',
         pointerLocked: this.pointerLocked,
@@ -468,6 +492,28 @@ class AbyssalAscentGame {
 
     const overdrive =
       this.motorOn && (this.keys.has('ShiftLeft') || this.keys.has('ShiftRight')) && !this.minigames.isOpen;
+
+    // Ship Power consumption from Motor & Floodlights
+    let powerDrain = 0;
+    if (this.motorOn) powerDrain += overdrive ? 1.65 : 0.95;
+    if (this.lightsOn) powerDrain += 0.25;
+    if (powerDrain > 0) {
+      this.shipPower = Math.max(0, this.shipPower - powerDrain * dt);
+      if (this.shipPower <= 0) {
+        this.motorOn = false;
+        this.lightsOn = false;
+        this.sound.playKlaxon();
+        this.hud.showAlert('⚡ POWER DEPLETED! COLLECT AN OIL BARREL (WATCH OUT FOR GLOWING MIMICS)!', 3.8);
+      }
+    }
+
+    // Update Floating Oil Barrels
+    const scoopedBarrels = this.barrels.update(dt, this.depth, this.shipPower);
+    if (scoopedBarrels > 0) {
+      this.shipPower = Math.min(100, this.shipPower + scoopedBarrels * 36);
+      this.sound.playPowerRefuel();
+      this.hud.showAlert(`🛢 OIL BARREL RECOVERED! +36% SHIP POWER (${Math.round(this.shipPower)}%)`, 2.4);
+    }
 
     // Ascent rate calculation (Main Turbine damage cuts speed by 50%)
     const turbinePenalty = this.sub.isPartDamaged('turbine') ? 0.5 : 1.0;
@@ -548,7 +594,21 @@ class AbyssalAscentGame {
       );
     }
 
-    const wpnStats = this.weapons.update(dt, this.sub.getHarpoonMuzzleWorldPos(), this.monsters);
+    const wpnStats = this.weapons.update(
+      dt,
+      this.sub.getHarpoonMuzzleWorldPos(),
+      this.monsters,
+      this.barrels
+    );
+    if (wpnStats.barrelsReeled > 0) {
+      this.shipPower = Math.min(100, this.shipPower + wpnStats.barrelsReeled * 36);
+      this.sound.playPowerRefuel();
+      this.hud.showAlert(`🛢 HARPOON REELED IN OIL BARREL! +36% SHIP POWER (${Math.round(this.shipPower)}%)`, 2.5);
+    }
+    if (wpnStats.barrelsDestroyed > 0) {
+      this.sound.playMiniClick(false);
+      this.hud.showAlert('⚠ BULLETS RUPTURED A REAL OIL BARREL! LET REAL BARRELS FLOAT IN OR USE HARPOON!', 3.0);
+    }
     if (wpnStats.hits > 0) {
       this.hud.flashHitmarker(wpnStats.ricochets > 0);
       if (wpnStats.ricochets > 0 && wpnStats.kills === 0) {
@@ -614,6 +674,7 @@ class AbyssalAscentGame {
       depth: this.depth,
       zoneName: this.ocean.getZoneName(this.depth),
       ascentRate: currentAscentRate,
+      shipPower: this.shipPower,
       floodPercent: this.floodPercent,
       piloting: this.piloting,
       motorOn: this.motorOn,
@@ -624,6 +685,7 @@ class AbyssalAscentGame {
       weapons: this.weapons,
       parts: this.sub.parts,
       monsters: this.monsters.monsters,
+      barrels: this.barrels.barrels,
       sonarDamaged: this.sub.isPartDamaged('sonar'),
       promptText,
       pointerLocked: this.pointerLocked,

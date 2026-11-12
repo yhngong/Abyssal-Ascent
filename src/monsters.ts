@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { buildOilBarrelMesh } from './barrels';
 import { DifficultyConfig, MonsterType } from './types';
 
 interface MonsterAnimRefs {
@@ -15,6 +16,7 @@ interface MonsterAnimRefs {
   bell?: THREE.Object3D;
   arcRings?: THREE.Object3D[];
   petalJaws?: THREE.Object3D[];
+  sirenBody?: THREE.Object3D;
 }
 
 export interface MonsterInstance {
@@ -197,12 +199,14 @@ export class MonsterManager {
         }
 
         case 'mimic_siren': {
-          if (dist > 34 && m.hp === m.maxHp) {
+          // Disguises itself as a floating Oil Barrel until shot or within 16m, then lunges!
+          if (dist > 16 && m.hp === m.maxHp) {
             m.agitated = false;
-            speed *= 0.45;
+            // Match real Oil Barrel drift speed (~6.4 m/s) while disguised
+            speed = 6.4;
           } else {
             m.agitated = true;
-            speed *= 1.28;
+            speed *= 1.25;
           }
           break;
         }
@@ -268,14 +272,14 @@ export class MonsterManager {
   }
 
   private spawnMonsterForDepth(depth: number, diff: DifficultyConfig): void {
-    const pool: MonsterType[] = ['blind_stalker', 'photovore', 'razor_swarm'];
+    const pool: MonsterType[] = ['blind_stalker', 'photovore', 'razor_swarm', 'mimic_siren'];
     if (depth > 2500) {
-      pool.push('blind_stalker', 'shadow_kraken', 'crusher');
+      pool.push('blind_stalker', 'shadow_kraken', 'crusher', 'mimic_siren');
     } else {
       pool.push('shadow_kraken', 'crusher');
     }
-    if (depth < 10800) {
-      pool.push('volt_jelly', 'mimic_siren', 'photovore');
+    if (depth < 11200) {
+      pool.push('volt_jelly', 'photovore');
     }
 
     const chosen = pool[Math.floor(Math.random() * pool.length)];
@@ -1073,90 +1077,79 @@ export class MonsterManager {
       }
 
       // -------------------------------------------------------------------------
-      // 7. MIMIC LANTERN-SIREN: Sleek abyssal shark-eel with fins, blooming lotus
-      //    decoy lure & 3-way split petal jaws packed with neon-crimson fangs!
+      // 7. MIMIC SIREN: Pretends to be an Oil Barrel on radar & in 3D space —
+      //    EXCEPT its decoy barrel GLOWS! Hides its 3-jawed body behind the barrel
+      //    until shot or close, then bursts open and lunges!
       // -------------------------------------------------------------------------
       case 'mimic_siren': {
-        name = 'Mimic Lantern-Siren';
-        maxHp = 68 * hpMult;
-        baseSpeed = 11.0;
-        hitRadius = 2.6;
+        name = 'Mimic Barrel-Siren';
+        maxHp = 64 * hpMult;
+        baseSpeed = 10.2;
+        hitRadius = 2.5;
 
         const hideMat = new THREE.MeshStandardMaterial({
-          color: 0x1e162b,
-          roughness: 0.55,
-          metalness: 0.25,
+          color: 0x161021,
+          roughness: 0.65,
+          metalness: 0.2,
         });
         const innerMawMat = new THREE.MeshStandardMaterial({
           color: 0x9f1239,
           emissive: 0xe11d48,
-          emissiveIntensity: 0.75,
+          emissiveIntensity: 0.8,
           roughness: 0.35,
           side: THREE.DoubleSide,
         });
-        const lurePinkMat = new THREE.MeshBasicMaterial({ color: 0xf472b6 });
-        const lureCyanMat = new THREE.MeshBasicMaterial({ color: 0x67e8f9 });
         const fangMat = new THREE.MeshBasicMaterial({ color: 0xffe4e6 });
 
-        // Sleek muscular shark-eel body + dorsal fin + pectoral fins + tail
+        // Decoy GLOWING Oil Barrel held out front!
+        const decoyBarrel = buildOilBarrelMesh(true);
+        decoyBarrel.position.set(0, 0, 0.35);
+        g.add(decoyBarrel);
+        anim.lure = decoyBarrel;
+
+        // Monster body tucked right behind the glowing barrel until revealed!
+        const sirenBody = new THREE.Group();
+        sirenBody.position.set(0, 0, -1.35);
+
+        const stalk = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.14, 1.8, 8), hideMat);
+        stalk.rotation.x = Math.PI / 2;
+        stalk.position.set(0, 0.1, 0.9);
+        sirenBody.add(stalk);
+
         const torso = new THREE.Mesh(new THREE.SphereGeometry(1.18, 16, 14), hideMat);
         torso.scale.set(0.95, 0.92, 1.85);
-        torso.position.z = -0.55;
-        g.add(torso);
+        torso.position.z = -0.65;
+        sirenBody.add(torso);
 
         const tailCone = new THREE.Mesh(new THREE.ConeGeometry(0.82, 2.6, 12), hideMat);
         tailCone.rotation.x = -Math.PI / 2;
-        tailCone.position.z = -2.65;
-        g.add(tailCone);
+        tailCone.position.z = -2.75;
+        sirenBody.add(tailCone);
 
         const dorsal = new THREE.Mesh(new THREE.ConeGeometry(0.45, 1.25, 4), hideMat);
         dorsal.scale.set(0.22, 1, 1.4);
-        dorsal.position.set(0, 1.25, -0.8);
+        dorsal.position.set(0, 1.25, -0.9);
         dorsal.rotation.x = -0.45;
-        g.add(dorsal);
+        sirenBody.add(dorsal);
 
         for (const side of [-1, 1]) {
           const pec = new THREE.Mesh(new THREE.ConeGeometry(0.48, 1.45, 4), hideMat);
           pec.scale.set(1.0, 0.15, 1.2);
           pec.rotation.z = -side * Math.PI * 0.42;
-          pec.position.set(side * 1.25, -0.35, -0.3);
-          g.add(pec);
+          pec.position.set(side * 1.25, -0.35, -0.4);
+          sirenBody.add(pec);
         }
-
-        // Deceptive pretty glowing lotus-blossom orb dangling far out front!
-        const stalk = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.05, 1.9, 6), hideMat);
-        stalk.position.set(0, 0.68, 1.55);
-        stalk.rotation.x = 1.05;
-        g.add(stalk);
-
-        const lureGroup = new THREE.Group();
-        lureGroup.position.set(0, 1.15, 2.55);
-        const centerGem = new THREE.Mesh(new THREE.SphereGeometry(0.32, 12, 12), lureCyanMat);
-        const pinkHalo = new THREE.Mesh(
-          new THREE.SphereGeometry(0.56, 12, 12),
-          new THREE.MeshBasicMaterial({ color: 0xf472b6, transparent: true, opacity: 0.42 })
-        );
-        lureGroup.add(centerGem, pinkHalo);
-        for (let p = 0; p < 6; p++) {
-          const a = (p / 6) * Math.PI * 2;
-          const petal = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.45, 6), lurePinkMat);
-          petal.position.set(Math.cos(a) * 0.36, Math.sin(a) * 0.36, 0);
-          petal.rotation.z = a - Math.PI / 2;
-          lureGroup.add(petal);
-        }
-        g.add(lureGroup);
-        anim.lure = lureGroup;
 
         // Glowing hypnotic gullet + 3-Way Split Petal Jaws packed with fangs!
         const throat = new THREE.Mesh(new THREE.SphereGeometry(0.68, 12, 12), innerMawMat);
-        throat.position.z = 0.72;
-        g.add(throat);
+        throat.position.z = 0.65;
+        sirenBody.add(throat);
 
         anim.petalJaws = [];
         for (let j = 0; j < 3; j++) {
           const ang = (j / 3) * Math.PI * 2 + Math.PI / 2;
           const jawRoot = new THREE.Group();
-          jawRoot.position.set(Math.cos(ang) * 0.55, Math.sin(ang) * 0.55, 0.75);
+          jawRoot.position.set(Math.cos(ang) * 0.55, Math.sin(ang) * 0.55, 0.72);
           jawRoot.rotation.z = ang - Math.PI / 2;
 
           const outerLobe = new THREE.Mesh(new THREE.ConeGeometry(0.62, 1.45, 7), hideMat);
@@ -1171,7 +1164,6 @@ export class MonsterManager {
           innerFlesh.position.set(0, -0.06, 0.66);
           jawRoot.add(innerFlesh);
 
-          // Double row of razor fangs along each petal lobe!
           for (let f = -2; f <= 2; f++) {
             const fang = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.34, 5), fangMat);
             fang.position.set(f * 0.16, -0.18, 0.55 + (2 - Math.abs(f)) * 0.22);
@@ -1180,8 +1172,11 @@ export class MonsterManager {
           }
 
           anim.petalJaws.push(jawRoot);
-          g.add(jawRoot);
+          sirenBody.add(jawRoot);
         }
+
+        g.add(sirenBody);
+        anim.sirenBody = sirenBody;
         break;
       }
     }
@@ -1338,12 +1333,25 @@ export class MonsterManager {
 
       case 'mimic_siren': {
         if (a.lure) {
-          a.lure.rotation.z += 0.035;
-          a.lure.scale.setScalar(0.95 + 0.15 * Math.sin(t * 1.8));
+          if (!m.agitated) {
+            // Tumble gently just like a real floating oil barrel!
+            a.lure.position.set(0, 0, 0.35);
+            a.lure.rotation.x += 0.012;
+            a.lure.rotation.y += 0.016;
+            a.lure.rotation.z += 0.01;
+          } else {
+            // Drop decoy barrel upward/aside as the fanged jaws lunge forward!
+            a.lure.position.set(0, 1.35, 0.9);
+            a.lure.rotation.x += 0.05;
+          }
+        }
+        if (a.sirenBody) {
+          // Stay tightly tucked & hidden behind the glowing barrel while disguised!
+          a.sirenBody.visible = m.agitated;
+          a.sirenBody.position.z = m.agitated ? 0.2 : -1.8;
         }
         if (a.petalJaws) {
-          // Stay tightly shut in disguise when calm; bloom wide open when lunging!
-          const openAngle = m.agitated ? 0.68 + 0.12 * Math.sin(t * 3.2) : -0.18;
+          const openAngle = m.agitated ? 0.72 + 0.14 * Math.sin(t * 3.2) : -0.25;
           for (const pj of a.petalJaws) {
             pj.rotation.x = openAngle;
           }

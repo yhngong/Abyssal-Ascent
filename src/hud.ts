@@ -1,3 +1,4 @@
+import { OilBarrelInstance } from './barrels';
 import { MonsterInstance } from './monsters';
 import { ShipPartState, STARTING_DEPTH } from './types';
 import { WeaponSystem } from './weapons';
@@ -13,6 +14,9 @@ export class HUDManager {
   private vdepthMarkerEl = document.getElementById('vdepth-marker') as HTMLDivElement;
   private vdepthCalloutEl = document.getElementById('vdepth-callout') as HTMLElement;
   private vdepthThreatTxtEl = document.getElementById('vdepth-threat-txt') as HTMLElement;
+
+  private powerPctEl = document.getElementById('hud-power-pct') as HTMLElement;
+  private powerFillEl = document.getElementById('hud-power-fill') as HTMLDivElement;
 
   private floodPctEl = document.getElementById('hud-flood-pct') as HTMLElement;
   private oxygenFillEl = document.getElementById('hud-oxygen-fill') as HTMLDivElement;
@@ -87,6 +91,7 @@ export class HUDManager {
     depth: number;
     zoneName: string;
     ascentRate: number;
+    shipPower: number;
     floodPercent: number;
     piloting: boolean;
     motorOn: boolean;
@@ -97,6 +102,7 @@ export class HUDManager {
     weapons: WeaponSystem;
     parts: ShipPartState[];
     monsters: MonsterInstance[];
+    barrels: OilBarrelInstance[];
     sonarDamaged: boolean;
     promptText: string | null;
     pointerLocked: boolean;
@@ -109,6 +115,7 @@ export class HUDManager {
       depth,
       zoneName,
       ascentRate,
+      shipPower,
       floodPercent,
       piloting,
       motorOn,
@@ -119,6 +126,7 @@ export class HUDManager {
       weapons,
       parts,
       monsters,
+      barrels,
       sonarDamaged,
       promptText,
       pointerLocked,
@@ -169,6 +177,12 @@ export class HUDManager {
       this.ascentRateEl.textContent = '0.0 m/s [STEALTH DRIFT]';
       this.ascentRateEl.style.color = '#94a3b8';
     }
+
+    // Ship Power (Oil)
+    const clampedPower = Math.min(100, Math.max(0, shipPower));
+    this.powerPctEl.textContent = `${Math.round(clampedPower)}%`;
+    this.powerPctEl.style.color = clampedPower < 25 ? '#f87171' : '#fde047';
+    this.powerFillEl.style.width = `${clampedPower}%`;
 
     // Flooding & Oxygen
     const clampedFlood = Math.min(100, Math.max(0, floodPercent));
@@ -255,10 +269,23 @@ export class HUDManager {
       .join('');
 
     // Render Hydrophone / Sonar Radar
-    this.renderSonarRadar(time, monsters, sonarDamaged);
+    this.renderSonarRadar(time, monsters, barrels, sonarDamaged);
   }
 
-  private renderSonarRadar(time: number, monsters: MonsterInstance[], sonarDamaged: boolean): void {
+  private drawRadarBarrelIcon(ctx: CanvasRenderingContext2D, x: number, y: number): void {
+    ctx.fillStyle = '#f59e0b';
+    ctx.strokeStyle = '#fef08a';
+    ctx.lineWidth = 1.2;
+    ctx.fillRect(x - 4, y - 4.5, 8, 9);
+    ctx.strokeRect(x - 4, y - 4.5, 8, 9);
+  }
+
+  private renderSonarRadar(
+    time: number,
+    monsters: MonsterInstance[],
+    barrels: OilBarrelInstance[],
+    sonarDamaged: boolean
+  ): void {
     const ctx = this.sonarCtx;
     const w = this.sonarCanvas.width;
     const h = this.sonarCanvas.height;
@@ -323,12 +350,26 @@ export class HUDManager {
     ctx.fillStyle = '#38bdf8';
     ctx.fill();
 
-    // Monster blips (X right, -Z up on radar)
+    // Real Floating Oil Barrels (Amber barrel icon on radar)
     const maxRange = 98;
+    for (const b of barrels) {
+      const nx = (b.position.x / maxRange) * r;
+      const ny = (b.position.z / maxRange) * r;
+      if (Math.hypot(nx, ny) > r - 5) continue;
+      this.drawRadarBarrelIcon(ctx, cx + nx, cy + ny);
+    }
+
+    // Monster blips (X right, -Z up on radar)
     for (const m of monsters) {
       const nx = (m.position.x / maxRange) * r;
       const ny = (m.position.z / maxRange) * r; // -Z is forward -> negative ny = top of radar!
       if (Math.hypot(nx, ny) > r - 4) continue;
+
+      // Disguised Mimic Siren pretends to be an Oil Barrel on the radar!
+      if (m.type === 'mimic_siren' && !m.agitated) {
+        this.drawRadarBarrelIcon(ctx, cx + nx, cy + ny);
+        continue;
+      }
 
       let color = '#f87171';
       if (m.type === 'photovore') color = '#facc15';
@@ -336,7 +377,7 @@ export class HUDManager {
       else if (m.type === 'crusher') color = '#fb923c';
       else if (m.type === 'razor_swarm') color = '#4ade80';
       else if (m.type === 'volt_jelly') color = '#22d3ee';
-      else if (m.type === 'mimic_siren') color = m.agitated ? '#f43f5e' : '#f9a8d4';
+      else if (m.type === 'mimic_siren') color = '#f43f5e';
 
       ctx.beginPath();
       ctx.arc(cx + nx, cy + ny, m.agitated ? 4.2 : 3.0, 0, Math.PI * 2);

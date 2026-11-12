@@ -394,6 +394,15 @@ canvas {
   background: linear-gradient(90deg, #0ea5e9, #38bdf8);
 }
 
+.vital-fill.power {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 100%;
+  background: linear-gradient(90deg, #d97706, #facc15);
+}
+
 .vital-fill.flood {
   position: absolute;
   right: 0;
