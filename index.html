@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ABYSSAL ASCENT — 12,000m Deep Sea Survival</title>
+  </head>
+  <body>
+    <div id="game-container"></div>
+
+    <!-- Vignette / Water Flooding / Damage Screen Effects -->
+    <div id="fx-flood-overlay"></div>
+    <div id="fx-damage-flash"></div>
+    <div id="fx-drowning-vignette"></div>
+
+    <!-- Pre-Game Title & Difficulty Selection Screen -->
+    <div id="start-screen" class="screen-overlay active">
+      <div class="terminal-panel">
+        <div class="title-header">
+          <div class="depth-tag">CHALLENGER DEEP // DEPTH: 12,000 METERS</div>
+          <h1>ABYSSAL ASCENT</h1>
+          <p class="subtitle">
+            Your tether snapped at the bottom of the ocean. Pilot the bathyscaphe <strong>NEREUS-VII</strong> slowly back to the surface,
+            fight off abyssal leviathans from the bridge, manage your light &amp; motor signatures, and repair hull breaches before the cabin floods and you drown.
+          </p>
+        </div>
+
+        <div class="section-label">SELECT MISSION DIFFICULTY</div>
+        <div id="difficulty-grid" class="difficulty-grid"></div>
+
+        <div class="info-columns">
+          <div class="info-box">
+            <h3>CONTROLS &amp; SYSTEMS</h3>
+            <ul class="controls-list">
+              <li><span>Mouse + Left Click</span> Aim &amp; Fire Weapon (in Pilot Seat)</li>
+              <li><span>1 / 2 or Q / Right-Click</span> Switch <strong>Harpoon</strong> &harr; <strong>Bullets</strong></li>
+              <li><span>R</span> Reload Autocannon Drum</li>
+              <li><span>M</span> Toggle <strong>Motor ON / OFF</strong> (Ascend vs. Silent Stealth)</li>
+              <li><span>Shift (Hold)</span> Turbine Overdrive (Faster Ascent, Loud!)</li>
+              <li><span>F</span> Toggle <strong>Floodlights ON / OFF</strong></li>
+              <li><span>C</span> Active Sonar Ping (Reveals Dark, Makes Noise)</li>
+              <li><span>Space / Tab</span> Leave / Enter <strong>Pilot Seat</strong></li>
+              <li><span>W A S D + E</span> Walk Submarine Cabin &amp; <strong>Repair Parts</strong></li>
+            </ul>
+          </div>
+
+          <div class="info-box">
+            <h3>ABYSSAL THREAT INTEL (7 SPECIES)</h3>
+            <ul class="monster-intel-list">
+              <li><strong class="c-red">Blind Trench Stalker:</strong> Eyeless! Listens to noise. <em>Turn Motor OFF [M] &amp; hold gunfire</em> so it swims past!</li>
+              <li><strong class="c-gold">Photovore Angler:</strong> Drawn to ship lights! <em>Turn Floodlights OFF [F]</em> to make it lose lock!</li>
+              <li><strong class="c-purple">Void Shadow Kraken:</strong> Hates bright light! Stalks in darkness — <em>shine Floodlights ON [F]</em> to burn &amp; slow it!</li>
+              <li><strong class="c-orange">Crusher Leviathan:</strong> Bulletproof shell! Use <em>Heavy Harpoons [1]</em> to pierce its chitin armor!</li>
+              <li><strong class="c-green">Razor Viper Swarm:</strong> Erratic fast pack! Mow them down with <em>Rapid Bullets [2]</em>!</li>
+              <li><strong class="c-cyan">Volt Siphonophore:</strong> Bio-EMP jellyfish! Scrambles lights &amp; power if it shocks the hull!</li>
+              <li><strong class="c-pink">Mimic Siren:</strong> Pretends to be a calm glowing orb until close — watch its teeth!</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="launch-row">
+          <button id="btn-start-game" class="launch-btn">DESCEND LOCK RELEASED — BEGIN ASCENT (12,000m)</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- In-Game HUD -->
+    <div id="hud" class="hidden">
+      <!-- Top Depth & Oxygen Bar -->
+      <div class="hud-top">
+        <div class="depth-panel">
+          <div class="depth-header">
+            <span id="hud-zone-name" class="zone-badge">HADAL TRENCH</span>
+            <span id="hud-ascent-rate" class="ascent-rate">+38.0 m/s</span>
+          </div>
+          <div class="depth-readout-row">
+            <span id="hud-depth-value" class="depth-value">12,000m</span>
+            <div class="depth-progress-track">
+              <div id="hud-depth-fill" class="depth-progress-fill"></div>
+            </div>
+            <span class="depth-surface-label">0m</span>
+          </div>
+        </div>
+
+        <div class="vitals-panel">
+          <div class="vital-row">
+            <span>CABIN OXYGEN / FLOODING</span>
+            <span id="hud-flood-pct">0% FLOODED</span>
+          </div>
+          <div class="vital-track">
+            <div id="hud-oxygen-fill" class="vital-fill oxygen"></div>
+            <div id="hud-flood-fill" class="vital-fill flood"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Alert Banner -->
+      <div id="hud-alert-banner" class="alert-banner hidden"></div>
+
+      <!-- Center Reticle & Prompts -->
+      <div id="reticle-container">
+        <div id="pilot-reticle" class="reticle-pilot">
+          <div class="reticle-ring"></div>
+          <div class="reticle-cross-h"></div>
+          <div class="reticle-cross-v"></div>
+          <div id="reticle-hitmarker" class="hitmarker hidden"></div>
+        </div>
+        <div id="walk-reticle" class="reticle-walk hidden"></div>
+        <div id="interaction-prompt" class="interaction-prompt hidden"></div>
+        <div id="pointer-lock-hint" class="pointer-hint hidden">Click screen to lock aim</div>
+      </div>
+
+      <!-- Right Panel: Ship Parts & Breach Timers -->
+      <div class="hud-right">
+        <div class="panel-title">SUBMARINE SYSTEMS &amp; HULL</div>
+        <div id="hud-parts-list" class="parts-list"></div>
+      </div>
+
+      <!-- Bottom Left: Ship Controls & Signatures -->
+      <div class="hud-bottom-left">
+        <div class="mode-pill" id="hud-mode-pill">MODE: PILOT BRIDGE [SPACE to Walk Cabin]</div>
+        <div class="sys-toggles">
+          <div id="sys-motor" class="sys-card active">
+            <span class="key-badge">M</span>
+            <div>
+              <div class="sys-name">MAIN MOTOR</div>
+              <div id="sys-motor-state" class="sys-state">RUNNING</div>
+            </div>
+          </div>
+          <div id="sys-lights" class="sys-card active">
+            <span class="key-badge">F</span>
+            <div>
+              <div class="sys-name">FLOODLIGHTS</div>
+              <div id="sys-lights-state" class="sys-state">ILLUMINATED</div>
+            </div>
+          </div>
+          <div id="sys-sonar" class="sys-card ready">
+            <span class="key-badge">C</span>
+            <div>
+              <div class="sys-name">SONAR PING</div>
+              <div id="sys-sonar-state" class="sys-state">READY</div>
+            </div>
+          </div>
+        </div>
+        <div class="noise-meter-wrap">
+          <span>ACOUSTIC NOISE SIGNATURE</span>
+          <div class="noise-track">
+            <div id="hud-noise-fill" class="noise-fill"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom Right: Sonar Radar + Weapons -->
+      <div class="hud-bottom-right">
+        <div class="sonar-box">
+          <canvas id="sonar-canvas" width="156" height="156"></canvas>
+          <div class="sonar-caption">HYDROPHONE RADAR</div>
+        </div>
+        <div class="weapons-box">
+          <div id="wpn-harpoon" class="wpn-card selected">
+            <div class="wpn-top"><span class="key-badge">1</span> <strong>HARPOON CANNON</strong></div>
+            <div class="wpn-sub">Armor-Piercing // Quiet</div>
+            <div class="wpn-bar"><div id="wpn-harpoon-bar" class="wpn-bar-fill"></div></div>
+            <div id="wpn-harpoon-txt" class="wpn-ammo">LOADED</div>
+          </div>
+          <div id="wpn-bullets" class="wpn-card">
+            <div class="wpn-top"><span class="key-badge">2</span> <strong>ROTARY 20MM</strong></div>
+            <div class="wpn-sub">Rapid Swarm Defense // Loud</div>
+            <div class="wpn-bar"><div id="wpn-bullets-bar" class="wpn-bar-fill"></div></div>
+            <div id="wpn-bullets-txt" class="wpn-ammo">40 / 40 [R]</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Repair Minigame Overlay -->
+    <div id="minigame-overlay" class="screen-overlay">
+      <div class="minigame-modal">
+        <div class="mg-header">
+          <div>
+            <div class="mg-tag">EMERGENCY HULL &amp; SYSTEM REPAIR</div>
+            <h2 id="mg-title">REPAIRING PART</h2>
+          </div>
+          <button id="mg-close-btn" class="mg-close">[ESC] ABORT</button>
+        </div>
+        <div class="mg-rupture-bar-wrap">
+          <span>TIME UNTIL PART RUPTURES &amp; FLOODS CABIN:</span>
+          <strong id="mg-timer-text">25.0s</strong>
+          <div class="mg-rupture-track">
+            <div id="mg-rupture-fill" class="mg-rupture-fill"></div>
+          </div>
+        </div>
+        <p id="mg-instructions" class="mg-instructions"></p>
+        <div id="mg-stage" class="mg-stage"></div>
+      </div>
+    </div>
+
+    <!-- End Game Screen (Victory or Drowned) -->
+    <div id="end-screen" class="screen-overlay">
+      <div class="terminal-panel end-panel">
+        <div id="end-badge" class="depth-tag">MISSION REPORT</div>
+        <h1 id="end-title">DROWNED IN THE ABYSS</h1>
+        <p id="end-reason" class="subtitle"></p>
+        <div id="end-stats" class="stats-grid"></div>
+        <div class="launch-row">
+          <button id="btn-restart" class="launch-btn">RETURN TO MISSION BRIEFING &amp; DIFFICULTY SELECT</button>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

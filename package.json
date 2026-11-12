@@ -1,0 +1,20 @@
+{
+  "name": "abyssal-ascent",
+  "private": true,
+  "version": "1.0.0",
+  "description": "3D Deep-Sea Submarine Survival Game: Ascend from 12,000m while fighting off abyssal monsters and repairing hull breaches.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "three": "^0.169.0"
+  },
+  "devDependencies": {
+    "@types/three": "^0.169.0",
+    "typescript": "^5.4.5",
+    "vite": "^5.2.11"
+  }
+}
