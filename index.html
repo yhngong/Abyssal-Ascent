@@ -97,6 +97,33 @@
       <!-- Alert Banner -->
       <div id="hud-alert-banner" class="alert-banner hidden"></div>
 
+      <!-- Left Vertical Depth Meter (12,000m -> 0m) -->
+      <div class="hud-left-depth-meter">
+        <div class="vdepth-title">DEPTH METER</div>
+        <div class="vdepth-cap top">☀ 0m SURFACE</div>
+        <div class="vdepth-body">
+          <div class="vdepth-ticks">
+            <span>0m</span>
+            <span>3,000m</span>
+            <span>6,000m</span>
+            <span>9,000m</span>
+            <span>12,000m</span>
+          </div>
+          <div class="vdepth-track">
+            <div id="vdepth-fill" class="vdepth-fill"></div>
+            <div id="vdepth-marker" class="vdepth-marker" style="bottom: 0%">
+              <span class="vdepth-sub-dot"></span>
+              <span id="vdepth-callout" class="vdepth-callout">12,000m</span>
+            </div>
+          </div>
+        </div>
+        <div class="vdepth-cap bottom">12,000m FLOOR</div>
+        <div class="vdepth-threat">
+          <span>MONSTER ACTIVITY</span>
+          <strong id="vdepth-threat-txt">100% (PEAK)</strong>
+        </div>
+      </div>
+
       <!-- Center Reticle & Prompts -->
       <div id="reticle-container">
         <div id="pilot-reticle" class="reticle-pilot">

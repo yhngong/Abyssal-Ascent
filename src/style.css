@@ -421,6 +421,151 @@ canvas {
   animation: pulseAlert 0.8s infinite alternate;
 }
 
+/* Left Vertical Depth Meter */
+.hud-left-depth-meter {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  bottom: 164px;
+  width: 158px;
+  min-height: 250px;
+  max-height: 470px;
+  background: rgba(3, 14, 26, 0.86);
+  border: 1px solid rgba(56, 189, 248, 0.42);
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  backdrop-filter: blur(4px);
+  box-shadow: 0 0 22px rgba(2, 132, 199, 0.18);
+}
+
+.vdepth-title {
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 1.6px;
+  color: #38bdf8;
+  text-align: center;
+  margin-bottom: 4px;
+}
+
+.vdepth-cap {
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  text-align: center;
+  padding: 2px 0;
+}
+
+.vdepth-cap.top {
+  color: #fde047;
+}
+
+.vdepth-cap.bottom {
+  color: #94a3b8;
+  margin-top: 4px;
+}
+
+.vdepth-body {
+  flex: 1;
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  margin: 4px 0;
+  position: relative;
+}
+
+.vdepth-ticks {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  font-size: 10px;
+  font-weight: 700;
+  color: #94c6e0;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  width: 52px;
+}
+
+.vdepth-track {
+  position: relative;
+  width: 22px;
+  border-radius: 99px;
+  border: 1px solid rgba(125, 211, 252, 0.48);
+  background: linear-gradient(
+    180deg,
+    #38bdf8 0%,
+    #0284c7 14%,
+    #075985 38%,
+    #082f49 68%,
+    #020617 100%
+  );
+  overflow: visible;
+}
+
+.vdepth-fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 0%;
+  border-radius: 99px;
+  background: linear-gradient(180deg, #fde047, #38bdf8, rgba(14, 165, 233, 0.35));
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.55);
+}
+
+.vdepth-marker {
+  position: absolute;
+  left: 50%;
+  transform: translate(-50%, 50%);
+  display: flex;
+  align-items: center;
+  z-index: 2;
+}
+
+.vdepth-sub-dot {
+  width: 26px;
+  height: 10px;
+  border-radius: 99px;
+  background: #fde047;
+  border: 2px solid #0f172a;
+  box-shadow: 0 0 10px #fde047;
+}
+
+.vdepth-callout {
+  position: absolute;
+  left: 20px;
+  background: rgba(2, 132, 199, 0.95);
+  border: 1px solid #bae6fd;
+  color: #ffffff;
+  font-size: 10.5px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+}
+
+.vdepth-threat {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(56, 189, 248, 0.22);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 9px;
+  color: #94a3b8;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+}
+
+.vdepth-threat strong {
+  font-size: 11px;
+  margin-top: 2px;
+  color: #f87171;
+}
+
 @keyframes pulseAlert {
   from { opacity: 0.82; transform: translateX(-50%) scale(0.99); }
   to { opacity: 1; transform: translateX(-50%) scale(1.02); }

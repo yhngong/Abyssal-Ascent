@@ -65,7 +65,7 @@ function tagMaterialBaseEmissive(root: THREE.Object3D): void {
 export class MonsterManager {
   public group = new THREE.Group();
   public monsters: MonsterInstance[] = [];
-  private spawnTimer = 2.5;
+  private spawnTimer = 4.5;
 
   constructor(scene: THREE.Scene) {
     scene.add(this.group);
@@ -76,7 +76,13 @@ export class MonsterManager {
       this.group.remove(m.group);
     }
     this.monsters = [];
-    this.spawnTimer = 2.5;
+    this.spawnTimer = 4.5;
+  }
+
+  public getThreatFactor(depth: number): number {
+    if (depth <= 300) return 0;
+    const depthNorm = THREE.MathUtils.clamp(depth / 12000, 0, 1);
+    return 0.12 + 0.88 * Math.pow(depthNorm, 1.15);
   }
 
   public revealAllWithSonar(duration = 4.8): void {
@@ -91,19 +97,30 @@ export class MonsterManager {
     depth: number,
     diff: DifficultyConfig,
     noiseLevel: number,
-    lightsOn: boolean
+    lightsOn: boolean,
+    repairingNow = false
   ): MonsterAttackEvent[] {
     const attacks: MonsterAttackEvent[] = [];
 
-    const surfaceCalm = depth < 140 ? 1.8 : 1.0;
+    // Monsters attack less and less the higher you ascend toward 0m!
+    const depthNorm = THREE.MathUtils.clamp(depth / 12000, 0, 1);
+    const threatFactor = this.getThreatFactor(depth);
+    const maxAtThisDepth =
+      threatFactor <= 0
+        ? 0
+        : Math.max(1, Math.round(diff.maxConcurrentMonsters * (0.25 + 0.75 * depthNorm)));
+
     this.spawnTimer -= dt;
-    if (this.spawnTimer <= 0 && this.monsters.length < diff.maxConcurrentMonsters && depth > 35) {
+    if (this.spawnTimer <= 0 && threatFactor > 0 && this.monsters.length < maxAtThisDepth) {
       this.spawnMonsterForDepth(depth, diff);
-      const jitter = 0.75 + Math.random() * 0.5;
-      this.spawnTimer = diff.spawnIntervalSec * jitter * surfaceCalm;
+      const jitter = 0.85 + Math.random() * 0.35;
+      // Spawn interval gets progressively much longer as threatFactor drops with altitude
+      this.spawnTimer = (diff.spawnIntervalSec / threatFactor) * jitter;
     }
 
     const subTarget = new THREE.Vector3(0, 1.2, -4.0);
+    const altitudeSpeedScale = 0.72 + 0.28 * depthNorm;
+    const repairGraceScale = repairingNow ? 0.62 : 1.0;
 
     for (let i = this.monsters.length - 1; i >= 0; i--) {
       const m = this.monsters[i];
@@ -115,14 +132,19 @@ export class MonsterManager {
       const dirToSub = toSub.clone().normalize();
 
       let desiredDir = dirToSub.clone();
-      let speed = m.baseSpeed * diff.monsterSpeedMult;
+      let speed = m.baseSpeed * diff.monsterSpeedMult * altitudeSpeedScale * repairGraceScale;
       m.agitated = true;
 
-      switch (m.type) {
+      // In the bright Sunlight Zone (< 300m), abyssal monsters retreat into the depths!
+      if (depth <= 300) {
+        m.agitated = false;
+        desiredDir.copy(m.driftDir);
+        speed *= 1.15;
+      } else switch (m.type) {
         case 'blind_stalker': {
           if (noiseLevel >= 0.2) {
             m.agitated = true;
-            speed *= 1.38 + noiseLevel * 0.45;
+            speed *= 1.22 + noiseLevel * 0.32;
             desiredDir.copy(dirToSub);
           } else {
             m.agitated = false;
@@ -135,7 +157,7 @@ export class MonsterManager {
         case 'photovore': {
           if (lightsOn) {
             m.agitated = true;
-            speed *= 1.35;
+            speed *= 1.2;
             desiredDir.copy(dirToSub);
           } else {
             m.agitated = false;
@@ -148,11 +170,11 @@ export class MonsterManager {
         case 'shadow_kraken': {
           if (!lightsOn) {
             m.agitated = true;
-            speed *= 1.42;
+            speed *= 1.24;
             desiredDir.copy(dirToSub);
           } else {
             m.agitated = false;
-            speed *= 0.28;
+            speed *= 0.26;
             desiredDir.copy(dirToSub);
           }
           break;
@@ -160,27 +182,27 @@ export class MonsterManager {
 
         case 'razor_swarm': {
           const perp = new THREE.Vector3(-dirToSub.z, Math.sin(time * 5 + m.animSeed) * 0.5, dirToSub.x).normalize();
-          desiredDir.addScaledVector(perp, Math.sin(time * 4.2 + m.animSeed) * 0.55).normalize();
+          desiredDir.addScaledVector(perp, Math.sin(time * 4.2 + m.animSeed) * 0.5).normalize();
           break;
         }
 
         case 'crusher': {
-          speed *= 0.92;
+          speed *= 0.85;
           break;
         }
 
         case 'volt_jelly': {
-          speed *= 0.85 + 0.45 * Math.abs(Math.sin(time * 2.6 + m.animSeed));
+          speed *= 0.8 + 0.35 * Math.abs(Math.sin(time * 2.6 + m.animSeed));
           break;
         }
 
         case 'mimic_siren': {
           if (dist > 34 && m.hp === m.maxHp) {
             m.agitated = false;
-            speed *= 0.48;
+            speed *= 0.45;
           } else {
             m.agitated = true;
-            speed *= 1.55;
+            speed *= 1.28;
           }
           break;
         }
@@ -259,9 +281,9 @@ export class MonsterManager {
     const chosen = pool[Math.floor(Math.random() * pool.length)];
     const instance = this.createMonsterInstance(chosen, diff.monsterHpMult);
 
-    const angleX = (Math.random() - 0.5) * 1.45;
-    const angleY = (Math.random() - 0.5) * 0.62;
-    const spawnDist = 66 + Math.random() * 26;
+    const angleX = (Math.random() - 0.5) * 1.35;
+    const angleY = (Math.random() - 0.5) * 0.56;
+    const spawnDist = 80 + Math.random() * 28;
 
     instance.position.set(
       Math.sin(angleX) * spawnDist,

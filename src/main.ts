@@ -47,6 +47,7 @@ class AbyssalAscentGame {
   private lightsOn = true;
   private sonarCooldown = 0;
   private weaponNoisePulse = 0;
+  private hullGraceTimer = 0;
 
   // Camera & Player Movement inside Submarine Cabin
   private playerPos = new THREE.Vector3(0, 1.65, -1.25);
@@ -284,6 +285,7 @@ class AbyssalAscentGame {
     this.lightsOn = true;
     this.sonarCooldown = 0;
     this.weaponNoisePulse = 0;
+    this.hullGraceTimer = 0;
 
     this.playerPos.set(0, 1.65, -1.25);
     this.walkYaw = Math.PI; // Facing cabin aft when standing up so stations are right in front of you!
@@ -447,6 +449,7 @@ class AbyssalAscentGame {
         promptText: 'CRITICAL HULL RUPTURE — CABIN FLOODING!',
         pointerLocked: this.pointerLocked,
         minigameOpen: false,
+        threatFactor: this.monsters.getThreatFactor(this.depth),
       });
       this.renderer.render(this.scene, this.camera);
 
@@ -461,6 +464,7 @@ class AbyssalAscentGame {
     this.sonarCooldown = Math.max(0, this.sonarCooldown - dt);
     this.weaponNoisePulse = Math.max(0, this.weaponNoisePulse - dt * 0.65);
     this.shakeIntensity = Math.max(0, this.shakeIntensity - dt * 0.35);
+    this.hullGraceTimer = Math.max(0, this.hullGraceTimer - dt);
 
     const overdrive =
       this.motorOn && (this.keys.has('ShiftLeft') || this.keys.has('ShiftRight')) && !this.minigames.isOpen;
@@ -510,7 +514,8 @@ class AbyssalAscentGame {
       this.depth,
       this.selectedDiff,
       noiseLevel,
-      effectiveLightsOn
+      effectiveLightsOn,
+      this.minigames.isOpen
     );
 
     for (const atk of monsterAttacks) {
@@ -518,6 +523,13 @@ class AbyssalAscentGame {
       this.shakeIntensity = 0.16;
       this.sound.playHullImpact();
       this.hud.flashHullDamage();
+
+      // Prevent simultaneous chain-breaching within 3.2s of a prior hull impact
+      if (this.hullGraceTimer > 0) {
+        this.hud.showAlert(`HULL BRACED AGAINST ${atk.monsterName.toUpperCase()} IMPACT!`, 2.0);
+        continue;
+      }
+      this.hullGraceTimer = 3.2;
 
       let damagedPart: ShipPartState;
       if (atk.empShock) {
@@ -529,7 +541,7 @@ class AbyssalAscentGame {
         damagedPart = this.sub.damageRandomPart(this.selectedDiff.breachTimeSeconds);
       }
 
-      this.floodPercent = Math.min(99, this.floodPercent + 5.5);
+      this.floodPercent = Math.min(99, this.floodPercent + 2.8);
       this.hud.showAlert(
         `⚠ ${atk.monsterName.toUpperCase()} HIT HULL! [${damagedPart.name.toUpperCase()}] BREACHED — PRESS [SPACE] TO REPAIR!`,
         4.0
@@ -561,10 +573,10 @@ class AbyssalAscentGame {
     // Passive cabin flooding from active breaches vs bilge draining when sealed
     const dmgCount = this.sub.countDamagedParts();
     if (dmgCount > 0) {
-      const ballastPenalty = this.sub.isPartDamaged('ballast') ? 1.65 : 1.0;
+      const ballastPenalty = this.sub.isPartDamaged('ballast') ? 1.45 : 1.0;
       this.floodPercent += dmgCount * this.selectedDiff.passiveLeakRate * ballastPenalty * dt;
     } else if (this.floodPercent > 0) {
-      this.floodPercent = Math.max(0, this.floodPercent - 2.6 * dt);
+      this.floodPercent = Math.max(0, this.floodPercent - 4.5 * dt);
     }
 
     // Check Rupture or Full Cabin Flooding -> Drown!
@@ -616,6 +628,7 @@ class AbyssalAscentGame {
       promptText,
       pointerLocked: this.pointerLocked,
       minigameOpen: this.minigames.isOpen,
+      threatFactor: this.monsters.getThreatFactor(this.depth),
     });
 
     this.renderer.render(this.scene, this.camera);

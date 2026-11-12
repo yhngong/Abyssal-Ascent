@@ -9,6 +9,11 @@ export class HUDManager {
   private depthValueEl = document.getElementById('hud-depth-value') as HTMLElement;
   private depthFillEl = document.getElementById('hud-depth-fill') as HTMLDivElement;
 
+  private vdepthFillEl = document.getElementById('vdepth-fill') as HTMLDivElement;
+  private vdepthMarkerEl = document.getElementById('vdepth-marker') as HTMLDivElement;
+  private vdepthCalloutEl = document.getElementById('vdepth-callout') as HTMLElement;
+  private vdepthThreatTxtEl = document.getElementById('vdepth-threat-txt') as HTMLElement;
+
   private floodPctEl = document.getElementById('hud-flood-pct') as HTMLElement;
   private oxygenFillEl = document.getElementById('hud-oxygen-fill') as HTMLDivElement;
   private floodFillEl = document.getElementById('hud-flood-fill') as HTMLDivElement;
@@ -96,6 +101,7 @@ export class HUDManager {
     promptText: string | null;
     pointerLocked: boolean;
     minigameOpen: boolean;
+    threatFactor: number;
   }): void {
     const {
       dt,
@@ -117,6 +123,7 @@ export class HUDManager {
       promptText,
       pointerLocked,
       minigameOpen,
+      threatFactor,
     } = params;
 
     // Timers
@@ -129,11 +136,31 @@ export class HUDManager {
       if (this.alertTimer <= 0) this.alertBannerEl.classList.add('hidden');
     }
 
-    // Depth & Ascent
+    // Depth & Ascent (Top Readout + Left Vertical Depth Meter)
+    const roundedDepth = Math.max(0, Math.round(depth));
     this.zoneNameEl.textContent = zoneName;
-    this.depthValueEl.textContent = `${Math.max(0, Math.round(depth)).toLocaleString()}m`;
-    const progress = ((STARTING_DEPTH - depth) / STARTING_DEPTH) * 100;
-    this.depthFillEl.style.width = `${Math.min(100, Math.max(0, progress))}%`;
+    this.depthValueEl.textContent = `${roundedDepth.toLocaleString()}m`;
+    const progress = Math.min(100, Math.max(0, ((STARTING_DEPTH - depth) / STARTING_DEPTH) * 100));
+    this.depthFillEl.style.width = `${progress}%`;
+
+    this.vdepthFillEl.style.height = `${progress}%`;
+    this.vdepthMarkerEl.style.bottom = `${progress}%`;
+    this.vdepthCalloutEl.textContent = `${roundedDepth.toLocaleString()}m`;
+
+    const threatPct = Math.round(threatFactor * 100);
+    if (threatPct <= 0) {
+      this.vdepthThreatTxtEl.textContent = '0% (SAFE SURFACE)';
+      this.vdepthThreatTxtEl.style.color = '#4ade80';
+    } else if (threatPct < 30) {
+      this.vdepthThreatTxtEl.textContent = `${threatPct}% (LOW)`;
+      this.vdepthThreatTxtEl.style.color = '#4ade80';
+    } else if (threatPct < 65) {
+      this.vdepthThreatTxtEl.textContent = `${threatPct}% (MODERATE)`;
+      this.vdepthThreatTxtEl.style.color = '#facc15';
+    } else {
+      this.vdepthThreatTxtEl.textContent = `${threatPct}% (HIGH)`;
+      this.vdepthThreatTxtEl.style.color = '#f87171';
+    }
 
     if (motorOn) {
       this.ascentRateEl.textContent = `+${ascentRate.toFixed(1)} m/s${overdrive ? ' [OVERDRIVE]' : ''}`;

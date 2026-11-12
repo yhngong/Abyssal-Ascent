@@ -23,13 +23,13 @@ export class WeaponSystem {
   public activeWeapon: WeaponType = 'harpoon';
 
   public harpoonCooldown = 0;
-  public readonly harpoonMaxCooldown = 1.05;
+  public readonly harpoonMaxCooldown = 0.82;
 
-  public bulletAmmo = 40;
-  public readonly bulletMaxAmmo = 40;
+  public bulletAmmo = 50;
+  public readonly bulletMaxAmmo = 50;
   public bulletFireCooldown = 0;
   public bulletReloadTimer = 0;
-  public readonly bulletReloadDuration = 1.6;
+  public readonly bulletReloadDuration = 1.25;
 
   private projectiles: Projectile[] = [];
   private bursts: HitBurst[] = [];
@@ -110,14 +110,14 @@ export class WeaponSystem {
         mesh,
         tetherLine,
         position: muzzlePos.clone(),
-        velocity: aimDir.clone().normalize().multiplyScalar(86),
-        life: 1.55,
-        damage: 58,
+        velocity: aimDir.clone().normalize().multiplyScalar(96),
+        life: 1.65,
+        damage: 76,
       });
 
-      return { fired: true, weapon: 'harpoon', noiseAdded: 0.08 };
+      return { fired: true, weapon: 'harpoon', noiseAdded: 0.06 };
     } else {
-      this.bulletFireCooldown = 0.105 * slowPenalty;
+      this.bulletFireCooldown = 0.095 * slowPenalty;
       this.bulletAmmo--;
       if (this.bulletAmmo <= 0) {
         this.bulletReloadTimer = this.bulletReloadDuration * slowPenalty;
@@ -125,8 +125,8 @@ export class WeaponSystem {
 
       // Slight spread for rotary cannon
       const spread = aimDir.clone();
-      spread.x += (Math.random() - 0.5) * 0.022;
-      spread.y += (Math.random() - 0.5) * 0.022;
+      spread.x += (Math.random() - 0.5) * 0.018;
+      spread.y += (Math.random() - 0.5) * 0.018;
       spread.normalize();
 
       const tracerGeo = new THREE.SphereGeometry(0.12, 6, 6);
@@ -141,9 +141,9 @@ export class WeaponSystem {
         type: 'bullets',
         mesh,
         position: muzzlePos.clone(),
-        velocity: spread.multiplyScalar(125),
-        life: 1.1,
-        damage: 14,
+        velocity: spread.multiplyScalar(135),
+        life: 1.15,
+        damage: 19,
       });
 
       return { fired: true, weapon: 'bullets', noiseAdded: 0.36 };
@@ -180,7 +180,7 @@ export class WeaponSystem {
       let hitMonster: MonsterInstance | null = null;
       for (const m of monsterMgr.monsters) {
         const dist = this.distPointToSegment(m.position, p.position, nextPos);
-        if (dist <= m.hitRadius + (p.type === 'harpoon' ? 0.55 : 0.3)) {
+        if (dist <= m.hitRadius + (p.type === 'harpoon' ? 0.9 : 0.6)) {
           hitMonster = m;
           break;
         }
