@@ -24,8 +24,8 @@ export class Submarine {
   private starSpot: THREE.SpotLight;
   private turretSpot: THREE.SpotLight;
   private lightCones: THREE.Mesh[] = [];
-  private cabinLight: THREE.PointLight;
-  private aftLight: THREE.PointLight;
+  private interiorLights: THREE.PointLight[] = [];
+  private ceilingFixtureMats: THREE.MeshStandardMaterial[] = [];
   private floodWaterMesh: THREE.Mesh;
 
   public parts: ShipPartState[] = [];
@@ -37,56 +37,77 @@ export class Submarine {
   constructor(scene: THREE.Scene) {
     this.initPartsData();
 
+    // Lighter, lower-metalness industrial submarine materials so cabin lights reflect warmly & clearly
     const hullMat = new THREE.MeshStandardMaterial({
-      color: 0x1c2836,
-      roughness: 0.65,
-      metalness: 0.72,
+      color: 0x384d63,
+      roughness: 0.52,
+      metalness: 0.32,
+    });
+    const panelAccentMat = new THREE.MeshStandardMaterial({
+      color: 0x48627d,
+      roughness: 0.46,
+      metalness: 0.35,
     });
     const ribMat = new THREE.MeshStandardMaterial({
-      color: 0x2b3c4f,
-      roughness: 0.5,
-      metalness: 0.8,
+      color: 0x526d88,
+      roughness: 0.42,
+      metalness: 0.45,
     });
     const floorMat = new THREE.MeshStandardMaterial({
-      color: 0x131c26,
-      roughness: 0.8,
-      metalness: 0.55,
+      color: 0x263545,
+      roughness: 0.65,
+      metalness: 0.3,
     });
     const brassMat = new THREE.MeshStandardMaterial({
-      color: 0xb4833e,
-      roughness: 0.38,
-      metalness: 0.85,
+      color: 0xd49b4b,
+      roughness: 0.32,
+      metalness: 0.68,
     });
     const glassMat = new THREE.MeshPhysicalMaterial({
-      color: 0x8be0ff,
+      color: 0x9be7ff,
       transparent: true,
-      opacity: 0.14,
-      roughness: 0.08,
-      metalness: 0.1,
+      opacity: 0.11,
+      roughness: 0.06,
+      metalness: 0.05,
       side: THREE.DoubleSide,
       depthWrite: false,
     });
 
-    // Floor & Grating
+    // Floor & Industrial Deck Grating
     const floor = new THREE.Mesh(new THREE.BoxGeometry(5.4, 0.25, 10.6), floorMat);
     floor.position.set(0, -0.125, 1.6);
     this.group.add(floor);
 
-    // Center walkway stripe
+    // Center walkway deck plate + glowing floor guide strips
     const walkway = new THREE.Mesh(
-      new THREE.PlaneGeometry(1.5, 9.2),
-      new THREE.MeshStandardMaterial({ color: 0x243447, roughness: 0.7 })
+      new THREE.PlaneGeometry(1.7, 9.2),
+      new THREE.MeshStandardMaterial({ color: 0x354a61, roughness: 0.55, metalness: 0.28 })
     );
     walkway.rotation.x = -Math.PI / 2;
     walkway.position.set(0, 0.01, 1.7);
     this.group.add(walkway);
+
+    const stripMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
+    for (const sx of [-0.88, 0.88]) {
+      const strip = new THREE.Mesh(new THREE.PlaneGeometry(0.05, 9.0), stripMat);
+      strip.rotation.x = -Math.PI / 2;
+      strip.position.set(sx, 0.015, 1.7);
+      this.group.add(strip);
+    }
+
+    // Crosswise deck grate rungs
+    for (let z = -2.2; z <= 5.8; z += 0.65) {
+      const rung = new THREE.Mesh(new THREE.BoxGeometry(1.65, 0.02, 0.08), ribMat);
+      rung.position.set(0, 0.01, z);
+      this.group.add(rung);
+    }
 
     // Ceiling
     const ceiling = new THREE.Mesh(new THREE.BoxGeometry(5.4, 0.25, 10.4), hullMat);
     ceiling.position.set(0, 2.95, 1.7);
     this.group.add(ceiling);
 
-    // Left & Right Cabin Bulkhead Walls (with porthole gaps)
+    // Left & Right Cabin Bulkhead Walls + Lighter Wainscoting Panels
     const leftWall = new THREE.Mesh(new THREE.BoxGeometry(0.28, 3.1, 9.8), hullMat);
     leftWall.position.set(-2.65, 1.45, 2.0);
     this.group.add(leftWall);
@@ -95,10 +116,26 @@ export class Submarine {
     rightWall.position.set(2.65, 1.45, 2.0);
     this.group.add(rightWall);
 
-    // Aft Wall
+    for (const side of [-1, 1]) {
+      const dado = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.05, 9.2), panelAccentMat);
+      dado.position.set(side * 2.49, 0.55, 2.0);
+      this.group.add(dado);
+
+      // Overhead copper/brass conduit pipes running the length of the cabin
+      const conduit = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 9.4, 10), brassMat);
+      conduit.rotation.x = Math.PI / 2;
+      conduit.position.set(side * 2.15, 2.66, 1.8);
+      this.group.add(conduit);
+    }
+
+    // Aft Engine Room Wall + Decorative Turbine Core Housing
     const aftWall = new THREE.Mesh(new THREE.BoxGeometry(5.5, 3.1, 0.35), hullMat);
     aftWall.position.set(0, 1.45, 6.75);
     this.group.add(aftWall);
+
+    const aftCoreRing = new THREE.Mesh(new THREE.TorusGeometry(1.15, 0.12, 12, 28), brassMat);
+    aftCoreRing.position.set(0, 1.45, 6.52);
+    this.group.add(aftCoreRing);
 
     // Structural Pressure Ribs along corridor
     for (let z = -2.2; z <= 6.2; z += 2.1) {
@@ -114,6 +151,40 @@ export class Submarine {
       rRib.position.set(2.46, 1.4, z);
       this.group.add(rRib);
     }
+
+    // Bright Overhead Ceiling Light Fixtures + High-Output Interior PointLights
+    const ceilingLightConfigs = [
+      { z: -1.85, color: 0xdff4ff, intensity: 16 },
+      { z: 0.45, color: 0xe6f4ff, intensity: 20 },
+      { z: 2.85, color: 0xe6f4ff, intensity: 20 },
+      { z: 5.15, color: 0xffe4b5, intensity: 18 },
+    ];
+    for (const cfg of ceilingLightConfigs) {
+      const housing = new THREE.Mesh(new THREE.BoxGeometry(1.45, 0.08, 0.36), ribMat);
+      housing.position.set(0, 2.8, cfg.z);
+      this.group.add(housing);
+
+      const diffuserMat = new THREE.MeshStandardMaterial({
+        color: cfg.color,
+        emissive: cfg.color,
+        emissiveIntensity: 2.2,
+        roughness: 0.2,
+      });
+      this.ceilingFixtureMats.push(diffuserMat);
+      const diffuser = new THREE.Mesh(new THREE.BoxGeometry(1.32, 0.05, 0.26), diffuserMat);
+      diffuser.position.set(0, 2.75, cfg.z);
+      this.group.add(diffuser);
+
+      // Low decay (1.05) ensures bright, even illumination across walls, floor, and consoles
+      const pt = new THREE.PointLight(cfg.color, cfg.intensity, 18, 1.05);
+      pt.position.set(0, 2.52, cfg.z);
+      this.interiorLights.push(pt);
+      this.group.add(pt);
+    }
+
+    // Soft interior hemisphere fill so shadowed undersides of consoles/chairs are clearly visible
+    const cabinHemi = new THREE.HemisphereLight(0xbbe6ff, 0x3b4d63, 1.35);
+    this.group.add(cabinHemi);
 
     // Front Panoramic Reinforced Dome Frame & Glass
     const noseLowerApron = new THREE.Mesh(new THREE.BoxGeometry(5.4, 0.78, 1.4), hullMat);
@@ -131,7 +202,6 @@ export class Submarine {
     domeGlass.position.set(0, 1.45, -2.85);
     this.group.add(domeGlass);
 
-    // Brass viewport mullions (thin struts at edges so center view is unobstructed)
     const archRing = new THREE.Mesh(new THREE.TorusGeometry(2.72, 0.08, 12, 36), brassMat);
     archRing.position.set(0, 1.45, -2.95);
     this.group.add(archRing);
@@ -139,30 +209,42 @@ export class Submarine {
     // Pilot Console & Interactive Pilot Chair
     const consoleDesk = new THREE.Mesh(
       new THREE.BoxGeometry(2.5, 0.78, 0.8),
-      new THREE.MeshStandardMaterial({ color: 0x162433, roughness: 0.45, metalness: 0.7 })
+      new THREE.MeshStandardMaterial({ color: 0x2b3f54, roughness: 0.42, metalness: 0.4 })
     );
     consoleDesk.position.set(0, 0.52, -2.95);
     this.group.add(consoleDesk);
 
-    // Glowing instrument screens on pilot desk
-    const screenMat = new THREE.MeshBasicMaterial({ color: 0x0ea5e9 });
-    for (const sx of [-0.65, 0, 0.65]) {
-      const scr = new THREE.Mesh(new THREE.PlaneGeometry(0.46, 0.26), screenMat);
+    // Glowing instrument screens on pilot desk + warm console fill light
+    const screenColors = [0x38bdf8, 0x22d3ee, 0x4ade80];
+    [-0.65, 0, 0.65].forEach((sx, i) => {
+      const scr = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.46, 0.26),
+        new THREE.MeshBasicMaterial({ color: screenColors[i] })
+      );
       scr.position.set(sx, 0.94, -2.62);
       scr.rotation.x = -0.55;
       this.group.add(scr);
-    }
+    });
+
+    const bridgeDeskLight = new THREE.PointLight(0x7dd3fc, 6.5, 6, 1.1);
+    bridgeDeskLight.position.set(0, 1.25, -2.45);
+    this.group.add(bridgeDeskLight);
 
     // Pilot Seat
     const chairGroup = new THREE.Group();
     chairGroup.position.set(0, 0, -2.05);
-    const seatPedestal = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.28, 0.55, 12), ribMat);
+    const cushionMat = new THREE.MeshStandardMaterial({ color: 0x7c2d12, roughness: 0.65, metalness: 0.1 });
+    const seatPedestal = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.28, 0.55, 12), brassMat);
     seatPedestal.position.y = 0.275;
-    const seatCushion = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.14, 0.68), hullMat);
+    const seatCushion = new THREE.Mesh(new THREE.BoxGeometry(0.74, 0.15, 0.7), cushionMat);
     seatCushion.position.y = 0.58;
-    const seatBack = new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.82, 0.14), hullMat);
+    const seatBack = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.85, 0.15), cushionMat);
     seatBack.position.set(0, 1.02, 0.28);
-    chairGroup.add(seatPedestal, seatCushion, seatBack);
+    const armL = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.08, 0.56), ribMat);
+    armL.position.set(-0.4, 0.82, 0.02);
+    const armR = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.08, 0.56), ribMat);
+    armR.position.set(0.4, 0.82, 0.02);
+    chairGroup.add(seatPedestal, seatCushion, seatBack, armL, armR);
 
     const chairHitGeo = new THREE.BoxGeometry(1.25, 1.7, 1.25);
     const invisibleMat = new THREE.MeshBasicMaterial({ visible: false });
@@ -179,13 +261,12 @@ export class Submarine {
     this.harpoonBarrel.position.set(-1.35, -0.52, -0.95);
     const harpTube = new THREE.Mesh(
       new THREE.CylinderGeometry(0.11, 0.14, 1.65, 12),
-      new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.85, roughness: 0.35 })
+      new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.65, roughness: 0.35 })
     );
     harpTube.rotation.x = Math.PI / 2;
     const harpRails = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.08, 1.75), brassMat);
     harpRails.position.y = -0.09;
 
-    // Loaded harpoon spear tip visible when ready
     const spearGeo = new THREE.ConeGeometry(0.09, 0.55, 8);
     spearGeo.rotateX(-Math.PI / 2);
     this.loadedHarpoonMesh = new THREE.Mesh(
@@ -193,8 +274,8 @@ export class Submarine {
       new THREE.MeshStandardMaterial({
         color: 0x38bdf8,
         emissive: 0x0284c7,
-        emissiveIntensity: 0.8,
-        metalness: 0.8,
+        emissiveIntensity: 1.1,
+        metalness: 0.6,
       })
     );
     this.loadedHarpoonMesh.position.set(0, 0, -1.05);
@@ -211,7 +292,7 @@ export class Submarine {
       const ang = (b / 4) * Math.PI * 2;
       const pipe = new THREE.Mesh(
         new THREE.CylinderGeometry(0.035, 0.035, 1.6, 8),
-        new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.9, roughness: 0.25 })
+        new THREE.MeshStandardMaterial({ color: 0xcbd5e1, metalness: 0.75, roughness: 0.25 })
       );
       pipe.rotation.x = Math.PI / 2;
       pipe.position.set(Math.cos(ang) * 0.09, Math.sin(ang) * 0.09, -0.35);
@@ -219,20 +300,20 @@ export class Submarine {
     }
     this.turretPivot.add(this.rotaryBarrel);
 
-    // Exterior Floodlights + Volumetric Cones
-    this.portSpot = new THREE.SpotLight(0xdff6ff, 5.5, 115, Math.PI * 0.34, 0.45, 1.1);
+    // High-power Exterior Floodlights so 3D monster details pop vividly in the abyss!
+    this.portSpot = new THREE.SpotLight(0xe0f7ff, 95, 135, Math.PI * 0.36, 0.42, 0.85);
     this.portSpot.position.set(-1.9, 0.6, -4.1);
-    this.portSpot.target.position.set(-4.0, 0.2, -45);
+    this.portSpot.target.position.set(-4.0, 0.2, -50);
     this.group.add(this.portSpot, this.portSpot.target);
 
-    this.starSpot = new THREE.SpotLight(0xdff6ff, 5.5, 115, Math.PI * 0.34, 0.45, 1.1);
+    this.starSpot = new THREE.SpotLight(0xe0f7ff, 95, 135, Math.PI * 0.36, 0.42, 0.85);
     this.starSpot.position.set(1.9, 0.6, -4.1);
-    this.starSpot.target.position.set(4.0, 0.2, -45);
+    this.starSpot.target.position.set(4.0, 0.2, -50);
     this.group.add(this.starSpot, this.starSpot.target);
 
-    this.turretSpot = new THREE.SpotLight(0xffffff, 7.2, 130, Math.PI * 0.25, 0.35, 1.0);
+    this.turretSpot = new THREE.SpotLight(0xffffff, 135, 145, Math.PI * 0.28, 0.35, 0.82);
     this.turretSpot.position.set(0, 0, -0.6);
-    this.turretSpot.target.position.set(0, 0, -50);
+    this.turretSpot.target.position.set(0, 0, -55);
     this.turretPivot.add(this.turretSpot, this.turretSpot.target);
 
     const coneGeo = new THREE.ConeGeometry(8.5, 36, 20, 1, true);
@@ -253,23 +334,14 @@ export class Submarine {
       this.group.add(cone);
     }
 
-    // Interior Cabin Lighting (stays dimly lit so you can walk & repair even when Exterior Floodlights are OFF!)
-    this.cabinLight = new THREE.PointLight(0x5bb8e8, 1.35, 11);
-    this.cabinLight.position.set(0, 2.55, -0.4);
-    this.group.add(this.cabinLight);
-
-    this.aftLight = new THREE.PointLight(0xf59e0b, 1.1, 10);
-    this.aftLight.position.set(0, 2.55, 4.2);
-    this.group.add(this.aftLight);
-
     // Rising Floodwater Plane inside the Submarine Cabin
     const waterGeo = new THREE.BoxGeometry(5.1, 2.8, 9.8);
     const waterMat = new THREE.MeshPhysicalMaterial({
-      color: 0x085a82,
+      color: 0x0ea5e9,
       transparent: true,
-      opacity: 0.62,
+      opacity: 0.58,
       roughness: 0.15,
-      metalness: 0.1,
+      metalness: 0.08,
     });
     this.floodWaterMesh = new THREE.Mesh(waterGeo, waterMat);
     this.floodWaterMesh.position.set(0, -1.45, 1.8);
@@ -361,41 +433,64 @@ export class Submarine {
 
   private buildPartStations(): void {
     const boxMat = new THREE.MeshStandardMaterial({
-      color: 0x243b53,
-      roughness: 0.45,
-      metalness: 0.75,
+      color: 0x365370,
+      roughness: 0.42,
+      metalness: 0.4,
+    });
+    const trimMat = new THREE.MeshStandardMaterial({
+      color: 0x4b6b8a,
+      roughness: 0.38,
+      metalness: 0.45,
     });
     const pipeMat = new THREE.MeshStandardMaterial({
-      color: 0x9a6b32,
-      roughness: 0.35,
-      metalness: 0.85,
+      color: 0xd49b4b,
+      roughness: 0.32,
+      metalness: 0.68,
     });
+    const dialFaceMat = new THREE.MeshBasicMaterial({ color: 0xe0f2fe });
 
     for (const part of this.parts) {
       const stGroup = new THREE.Group();
       stGroup.position.copy(part.position);
       stGroup.lookAt(part.lookTarget);
 
-      // Industrial Cabinet / Valve Box
-      const cabinet = new THREE.Mesh(new THREE.BoxGeometry(1.15, 1.25, 0.32), boxMat);
+      // Industrial Cabinet / Valve Box + Panel Bezel + Pressure Gauges
+      const cabinet = new THREE.Mesh(new THREE.BoxGeometry(1.18, 1.28, 0.32), boxMat);
       stGroup.add(cabinet);
 
-      const pipeL = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.5, 8), pipeMat);
-      pipeL.position.set(-0.46, 0.1, 0.16);
-      const pipeR = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.5, 8), pipeMat);
-      pipeR.position.set(0.46, 0.1, 0.16);
+      const bezel = new THREE.Mesh(new THREE.BoxGeometry(0.92, 0.78, 0.06), trimMat);
+      bezel.position.set(0, 0.06, 0.17);
+      stGroup.add(bezel);
+
+      for (const gx of [-0.24, 0.24]) {
+        const gaugeRim = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.05, 14), pipeMat);
+        gaugeRim.rotation.x = Math.PI / 2;
+        gaugeRim.position.set(gx, 0.18, 0.21);
+        const gaugeFace = new THREE.Mesh(new THREE.CircleGeometry(0.11, 14), dialFaceMat);
+        gaugeFace.position.set(gx, 0.18, 0.24);
+        stGroup.add(gaugeRim, gaugeFace);
+      }
+
+      const handwheel = new THREE.Mesh(new THREE.TorusGeometry(0.15, 0.028, 8, 18), new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.4 }));
+      handwheel.position.set(0, -0.22, 0.23);
+      stGroup.add(handwheel);
+
+      const pipeL = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.55, 10), pipeMat);
+      pipeL.position.set(-0.48, 0.1, 0.16);
+      const pipeR = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.55, 10), pipeMat);
+      pipeR.position.set(0.48, 0.1, 0.16);
       stGroup.add(pipeL, pipeR);
 
       // Beacon Dome Light
       const beaconMesh = new THREE.Mesh(
-        new THREE.SphereGeometry(0.11, 12, 12),
+        new THREE.SphereGeometry(0.12, 12, 12),
         new THREE.MeshBasicMaterial({ color: 0x22c55e })
       );
-      beaconMesh.position.set(0, 0.72, 0.18);
+      beaconMesh.position.set(0, 0.74, 0.18);
       stGroup.add(beaconMesh);
 
-      const beaconLight = new THREE.PointLight(0xef4444, 0, 5.5);
-      beaconLight.position.set(0, 0.75, 0.45);
+      const beaconLight = new THREE.PointLight(0xef4444, 0, 7.5, 1.1);
+      beaconLight.position.set(0, 0.78, 0.5);
       stGroup.add(beaconLight);
 
       // Floating Label Sprite
@@ -406,7 +501,7 @@ export class Submarine {
       const spriteMat = new THREE.SpriteMaterial({ map: tex, transparent: true });
       const labelSprite = new THREE.Sprite(spriteMat);
       labelSprite.scale.set(1.55, 0.48, 1);
-      labelSprite.position.set(0, 1.05, 0.25);
+      labelSprite.position.set(0, 1.08, 0.25);
       stGroup.add(labelSprite);
 
       // Sparks particle emitter
@@ -415,7 +510,7 @@ export class Submarine {
       sparkGeo.setAttribute('position', new THREE.BufferAttribute(sparkPos, 3));
       const sparkPoints = new THREE.Points(
         sparkGeo,
-        new THREE.PointsMaterial({ color: 0xfbbf24, size: 0.09, transparent: true, opacity: 0.9 })
+        new THREE.PointsMaterial({ color: 0xfbbf24, size: 0.1, transparent: true, opacity: 0.95 })
       );
       sparkPoints.visible = false;
       stGroup.add(sparkPoints);
@@ -426,7 +521,7 @@ export class Submarine {
       leakGeo.setAttribute('position', new THREE.BufferAttribute(leakPos, 3));
       const leakPoints = new THREE.Points(
         leakGeo,
-        new THREE.PointsMaterial({ color: 0x7dd3fc, size: 0.11, transparent: true, opacity: 0.75 })
+        new THREE.PointsMaterial({ color: 0x7dd3fc, size: 0.11, transparent: true, opacity: 0.82 })
       );
       leakPoints.visible = false;
       stGroup.add(leakPoints);
@@ -462,7 +557,7 @@ export class Submarine {
     if (!ctx) return;
 
     ctx.clearRect(0, 0, 256, 80);
-    ctx.fillStyle = part.damaged ? 'rgba(127, 29, 29, 0.9)' : 'rgba(7, 26, 44, 0.85)';
+    ctx.fillStyle = part.damaged ? 'rgba(127, 29, 29, 0.94)' : 'rgba(10, 35, 58, 0.9)';
     ctx.strokeStyle = part.damaged ? '#f87171' : '#38bdf8';
     ctx.lineWidth = 4;
     ctx.strokeRect(4, 4, 248, 72);
@@ -509,7 +604,6 @@ export class Submarine {
       this.drawStationLabel(chosen);
       return chosen;
     }
-    // If all parts already damaged, shave 3.5s off the one with highest timer
     const target = this.parts[Math.floor(Math.random() * this.parts.length)];
     target.timer = Math.max(1.5, target.timer - 3.5);
     this.drawStationLabel(target);
@@ -586,14 +680,23 @@ export class Submarine {
     this.rotarySpin = Math.max(0, this.rotarySpin - dt * 3.5);
     this.loadedHarpoonMesh.visible = harpoonLoaded;
 
-    // Electrical Grid damage causes lights to flicker erratically
+    // Electrical Grid damage causes exterior beams to flicker & a subtle cabin brownout dip (never too dark!)
     const elecDamaged = this.isPartDamaged('electrical');
-    const flicker = elecDamaged ? (Math.sin(time * 27) > -0.3 ? 1 : 0.12) : 1;
+    const flicker = elecDamaged ? (Math.sin(time * 27) > -0.3 ? 1 : 0.15) : 1;
+    const cabinFlicker = elecDamaged ? (Math.sin(time * 23) > -0.4 ? 1.0 : 0.65) : 1.0;
     const effectiveLight = lightsOn ? flicker : 0;
 
-    this.portSpot.intensity = 5.5 * effectiveLight;
-    this.starSpot.intensity = 5.5 * effectiveLight;
-    this.turretSpot.intensity = 7.2 * effectiveLight;
+    const baseCabinIntensities = [16, 20, 20, 18];
+    this.interiorLights.forEach((lt, idx) => {
+      lt.intensity = baseCabinIntensities[idx] * cabinFlicker;
+    });
+    this.ceilingFixtureMats.forEach((m) => {
+      m.emissiveIntensity = 2.2 * cabinFlicker;
+    });
+
+    this.portSpot.intensity = 95 * effectiveLight;
+    this.starSpot.intensity = 95 * effectiveLight;
+    this.turretSpot.intensity = 135 * effectiveLight;
     for (const cone of this.lightCones) {
       cone.visible = effectiveLight > 0.2;
       (cone.material as THREE.MeshBasicMaterial).opacity = 0.055 * effectiveLight;
@@ -602,7 +705,6 @@ export class Submarine {
     // Update rising cabin water level
     if (floodPercent > 1) {
       this.floodWaterMesh.visible = true;
-      // Rises from floor (0m) up to ceiling (2.6m)
       const waterHeight = (floodPercent / 100) * 2.55;
       this.floodWaterMesh.position.y = -1.4 + waterHeight;
     } else {
@@ -629,7 +731,7 @@ export class Submarine {
 
       // Red flashing alarm strobe
       const strobe = 0.5 + 0.5 * Math.sin(time * 12);
-      vis.beaconLight.intensity = 2.4 * strobe;
+      vis.beaconLight.intensity = 10 * strobe;
       (vis.beaconMesh.material as THREE.MeshBasicMaterial).color.setHex(strobe > 0.5 ? 0xff3333 : 0x660000);
 
       // Update sparks
